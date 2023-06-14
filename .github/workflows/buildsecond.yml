@@ -1,24 +1,24 @@
-name: Build Android APK
+name: Build Android APK Delivery To Release
 
 on:
   workflow_dispatch:
     inputs:
       repository:
-        description: "Git repository URL"
+        description: "URL repositori Git"
         required: true
         default: "https://github.com/android/sunflower"
       jdkVersion:
-        description: "OpenJDK version to use: 8 / 11 / 17 etc."
+        description: "Versi OpenJDK yang digunakan: 8 / 11 / 17, dll."
         required: false
         default: "11"
       taskName:
-        description: "build.gradle task name: assemble[Flavor]Debug"
+        description: "Nama tugas dalam build.gradle: assemble[Flavor]Debug"
         required: false
         default: "assembleDebug"
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Android SDK is built-in in this image
+    runs-on: ubuntu-latest # Android SDK sudah terpasang dalam gambar ini
     steps:
       - name: Setup JDK
         uses: actions/setup-java@v3
@@ -41,14 +41,30 @@ jobs:
         run: |
           mv app/build/outputs/apk/debug/*.apk ../app-debug.apk
 
+      - name: Get Latest Release
+        id: get_latest_release
+        uses: actions/github-script@v4
+        with:
+          script: |
+            const { data } = await github.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            console.log(data.tag_name);
+            core.setOutput("latest_tag", data.tag_name);
+
+      - name: Increment Tag
+        id: increment_tag
+        run: echo ::set-output name=new_tag::$(echo "${{ steps.get_latest_release.outputs.latest_tag }}" | awk -F. -v OFS=. '{$NF++; print}')
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
         with:
-          tag_name: v1.0.0 # Set the tag name for the release
-          release_name: Release v1.0.0 # Set the name for the release
+          tag_name: ${{ steps.increment_tag.outputs.new_tag }}
+          release_name: Release ${{ steps.increment_tag.outputs.new_tag }}
           draft: false
           prerelease: false
 
@@ -67,5 +83,3 @@ jobs:
           asset_path: ../app-debug.apk
           asset_name: ${{ github.run_id }}.apk
           asset_content_type: application/vnd.android.package-archive
-
-
