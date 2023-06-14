@@ -55,7 +55,7 @@ jobs:
 
       - name: Increment Tag
         id: increment_tag
-        run: echo ::set-output name=new_tag::$(echo "${{ steps.get_latest_release.outputs.latest_tag }}" | awk -F. -v OFS=. '{$NF++; print}')
+        run: echo "::set-output name=new_tag::$(echo "${{ steps.get_latest_release.outputs.latest_tag }}" | awk -F. -v OFS=. '{$NF++; print}')"
 
       - name: Create Release
         id: create_release
@@ -75,13 +75,12 @@ jobs:
           name: apk-archive
           if-no-files-found: warn
 
-
       - name: Add APK to Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ../app-debug.apk
+          asset_path: ${{ github.workspace }}/app-debug.apk
           asset_name: ${{ github.run_id }}.apk
           asset_content_type: application/vnd.android.package-archive
